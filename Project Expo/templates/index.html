@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VocalSync— AI Communication Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<!-- EMERGENCY OVERLAY -->
+<div id="emergencyOverlay" class="emergency-overlay" style="display:none;">
+  <div class="emergency-box">
+    <div class="emergency-icon">🚨</div>
+    <div class="emergency-title">EMERGENCY DETECTED</div>
+    <div class="emergency-word" id="emergencyWord"></div>
+    <button class="emergency-dismiss" onclick="dismissEmergency()">Dismiss Alert</button>
+  </div>
+</div>
+
+<!-- SUMMARY MODAL -->
+<div id="summaryModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📄 Conversation Summary</div>
+      <button class="modal-close" onclick="closeSummary()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="summary-meta" id="summaryMeta"></div>
+      <div class="summary-section">
+        <div class="summary-label">AI SUMMARY</div>
+        <div class="summary-text" id="summaryText">Generating summary...</div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-label">FULL TRANSCRIPT</div>
+        <div class="summary-transcript" id="summaryTranscript"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" onclick="exportPDF()">📥 Save as PDF</button>
+      <button class="btn-sm" onclick="exportTXT()">📋 Save as TXT</button>
+      <button class="btn-sm btn-accent" onclick="closeSummary()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">👁</div>
+      <div class="logo-text">Vocal<span>Sync</span></div>
+      <div class="logo-sub">AI Communication Assistant</div>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Ready</span>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-sm" onclick="openSummary()">📄 Summary</button>
+      <button class="btn-sm" onclick="clearAll()">Clear</button>
+      <button class="btn-sm btn-accent" onclick="exportTXT()">Export</button>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main">
+
+    <!-- LEFT PANEL -->
+    <div class="panel panel-left">
+
+      <!-- Mic visualizer -->
+      <div class="mic-section">
+        <div class="mic-ring" id="micRing">
+          <div class="mic-core">🎤</div>
+          <div class="mic-wave w1"></div>
+          <div class="mic-wave w2"></div>
+          <div class="mic-wave w3"></div>
+        </div>
+        <div class="mic-label" id="micLabel">Press Start to begin</div>
+      </div>
+
+      <!-- Start button -->
+      <button class="start-btn" id="startBtn" onclick="toggleListening()">
+        ▶ &nbsp;Start Listening
+      </button>
+
+      <!-- Language -->
+      <div class="control-row">
+        <span class="section-label">LANGUAGE</span>
+        <select id="langSelect" class="lang-select" onchange="changeLanguage()">
+          <option value="en-US">English (US)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="hi-IN">Hindi</option>
+          <option value="fr-FR">French</option>
+          <option value="de-DE">German</option>
+          <option value="es-ES">Spanish</option>
+        </select>
+      </div>
+
+      <!-- Emotion card -->
+      <div class="emotion-card">
+        <div class="section-label" style="margin-bottom:12px;">EMOTION DETECTED</div>
+        <div class="emotion-display">
+          <div class="emotion-emoji" id="emotionEmoji">😐</div>
+          <div class="emotion-right">
+            <div class="emotion-name" id="emotionName">Neutral</div>
+            <div class="emotion-desc" id="emotionDesc">Waiting for speech...</div>
+          </div>
+        </div>
+        <div class="emotion-track">
+          <div class="emotion-fill" id="emotionFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="wordCountEl">0</div>
+          <div class="stat-lbl">Words</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="sessionTimeEl">0:00</div>
+          <div class="stat-lbl">Duration</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="sentenceCountEl">0</div>
+          <div class="stat-lbl">Sentences</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER PANEL: Transcription + Sign Language -->
+    <div class="panel panel-center">
+
+      <!-- Live transcription -->
+      <div class="output-header">
+        <span class="section-label">LIVE TRANSCRIPTION</span>
+        <span class="live-badge" id="liveBadge">IDLE</span>
+      </div>
+
+      <div class="transcript-box" id="transcriptBox">
+        <div class="transcript-placeholder" id="transcriptPlaceholder">
+          Waiting for speech...<br/>Start listening and speak naturally.
+        </div>
+        <div id="transcriptContent"></div>
+        <div class="interim-text" id="interimText"></div>
+      </div>
+
+      <!-- Sign language avatar -->
+      <div class="sign-section">
+        <div class="output-header" style="margin-top:16px;">
+          <span class="section-label">SIGN LANGUAGE</span>
+          <span class="section-label" style="color:var(--accent);">Auto-plays on speech</span>
+        </div>
+        <div class="sign-box" id="signBox">
+          <div class="sign-placeholder" id="signPlaceholder">
+            <div style="font-size:36px;">🤟</div>
+            <p>Sign language will appear here when speech is detected</p>
+          </div>
+          <div class="sign-display" id="signDisplay" style="display:none;">
+            <div class="sign-word-label" id="signWordLabel"></div>
+            <div class="sign-hands" id="signHands"></div>
+            <div class="sign-word-queue" id="signWordQueue"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: Two-way reply -->
+    <div class="panel panel-right">
+
+      <div class="output-header">
+        <span class="section-label">YOUR REPLY</span>
+        <span class="section-label" style="color:var(--accent);">Type → Spoken Aloud</span>
+      </div>
+
+      <!-- Quick replies -->
+      <div class="quick-label">
+        <span class="section-label">QUICK REPLIES</span>
+      </div>
+      <div class="chips-grid">
+        <button class="reply-chip" onclick="speakReply('Yes, I understand')">Yes, I understand</button>
+        <button class="reply-chip" onclick="speakReply('Please repeat that')">Please repeat that</button>
+        <button class="reply-chip" onclick="speakReply('I need help')">I need help</button>
+        <button class="reply-chip" onclick="speakReply('Give me a moment')">Give me a moment</button>
+        <button class="reply-chip" onclick="speakReply('Thank you')">Thank you</button>
+        <button class="reply-chip" onclick="speakReply('I am fine')">I am fine</button>
+        <button class="reply-chip" onclick="speakReply('Can you speak slower?')">Speak slower</button>
+        <button class="reply-chip" onclick="speakReply('I do not understand')">Don't understand</button>
+      </div>
+
+      <!-- Custom reply -->
+      <div class="reply-area">
+        <div class="section-label" style="margin-bottom:8px;">CUSTOM REPLY</div>
+        <textarea
+          id="replyInput"
+          class="reply-input"
+          placeholder="Type your reply here and press Speak..."
+          rows="3"
+        ></textarea>
+        <button class="speak-btn" onclick="sendReply()">🔊 &nbsp;Speak Aloud</button>
+      </div>
+
+      <!-- Speaking indicator -->
+      <div class="speaking-indicator" id="speakingIndicator" style="display:none;">
+        <div class="speaking-dots">
+          <span></span><span></span><span></span>
+        </div>
+        Speaking your reply aloud...
+      </div>
+
+      <!-- Conversation history -->
+      <div class="history-section">
+        <div class="section-label" style="margin-bottom:10px;">CONVERSATION LOG</div>
+        <div class="history-box" id="historyBox">
+          <div class="history-placeholder">Conversation will appear here...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom-strip">
+    <div class="strip-item"><div class="strip-dot" style="background:#00e5b0;"></div>Speech Recognition</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#a78bfa;"></div>Emotion Analysis</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#ff4d6d;"></div>Emergency Detection</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#00aaff;"></div>Sign Language</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#f59e0b;"></div>Two-Way Voice</div>
+    <div class="strip-item" style="margin-left:auto;">VocalEye v2.0 — For the Hearing Impaired</div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
